@@ -21,14 +21,13 @@ def list_of_users(request):
         if u_serializer.is_valid():
             u_serializer.save()
         else:
-            return Response({'error': u_serializer.errors},
-                            status=status.HTTP_500_INTERNAL_SERVER_ERROR)
+            return Response({'error': u_serializer.errors}, status=status.HTTP_500_INTERNAL_SERVER_ERROR)
         try:
             person = request.data
             user_id = User.objects.get(username=request.data.get("user")['username']).id
             person['user_id'] = user_id
         except Exception as e:
-            return Response({"ERROR": e})
+            return Response({"error": e})
         p_serializer = PersonSerializer(data=person)
         if p_serializer.is_valid():
             p_serializer.save()
@@ -64,27 +63,56 @@ def list_of_users(request):
 # }
 
 
-# @api_view(['GET', 'PUT', 'DELETE'])
-# def user_detail(request, user_id):
-#     try:
-#         user = User.objects.get(id=user_id)
-#     except User.DoesNotExist as e:
-#         return Response({'error': str(e)})
-#
-#     if request.method == 'GET':
-#         serializer = UserSerializer(user)
-#         return Response(serializer.data)
-#     elif request.method == 'PUT':
-#         serializer = UserSerializer(instance=user, data=request.data)
-#         if serializer.is_valid():
-#             serializer.save()
-#             return Response(serializer.data)
-#         return Response({'error': serializer.errors})
-#     elif request.method == 'DELETE':
-#         user.delete()
-#         return Response({'deleted': True})
-#
-#
+@api_view(['GET', 'PUT', 'DELETE'])
+def user_detail(request, user_id):
+    try:
+        person = Person.objects.get(id=user_id)
+    except User.DoesNotExist as e:
+        return Response({'error': str(e)})
+
+    if request.method == 'GET':
+        serializer = PersonSerializer(person)
+        return Response(serializer.data)
+
+    elif request.method == 'PUT':
+        if not request.data:
+            return Response({"null": "Empty JSON"}, status=status.HTTP_400_BAD_REQUEST)
+        if request.data.get("user"):
+            user = User.objects.get(id=person.user.id)
+            data = request.data.get("user")
+            data["username"] = request.data.get("user").get("username") or user.username
+            serializer = UserSerializer(instance=user, data=data)
+            if serializer.is_valid():
+                serializer.save()
+            else:
+                return Response({'error': serializer.errors})
+        data = request.data
+        if request.data.get("user"):
+            data["user_id"] = request.data.get("user").get("user_id") or person.user.id
+        else:
+            data["user_id"] = person.user.id
+        data["birth_date"] = request.data.get("birth_date") or person.birth_date
+        data["availability"] = request.data.get("availability") or person.availability
+        data["reviews"] = request.data.get("reviews") or person.reviews
+
+        serializer = PersonSerializer(instance=person, data=data)
+        if serializer.is_valid():
+            serializer.save()
+            if request.data.get("skills"):
+                person.skills.clear()
+                for s in request.data.get("skills"):
+                    skill = Skill.objects.get(id=s.get("id"))
+                    person.skills.add(skill)
+            return Response(serializer.data)
+        return Response({'error': serializer.errors})
+
+    elif request.method == 'DELETE':
+        user = User.objects.get(id=person.user.id)
+        person.delete()
+        user.delete()
+        return Response({'deleted': True})
+
+
 # @api_view(['GET', 'POST'])
 # def list_of_skills(request):
 #     if request.method == 'GET':
