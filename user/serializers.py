@@ -1,6 +1,6 @@
 from rest_framework import serializers
 
-from user.models import SkillCategory, Skill, Person
+from user.models import Category, Skill, Person, Relationship
 from django.contrib.auth.models import User
 
 
@@ -12,31 +12,45 @@ class UserSerializer(serializers.ModelSerializer):
         fields = ('id', 'username', 'first_name', 'last_name', 'email')
 
 
-class SkillCategorySerializer(serializers.ModelSerializer):
+class CategorySerializer(serializers.ModelSerializer):
     id = serializers.IntegerField(read_only=True)
 
     class Meta:
-        model = SkillCategory
+        model = Category
         fields = ('id', 'name', 'description')
 
 
 class SkillSerializer(serializers.ModelSerializer):
     id = serializers.IntegerField(read_only=True)
-    category = SkillCategorySerializer(many=False, read_only=True)
+    category = CategorySerializer(many=False, read_only=True)
     category_id = serializers.IntegerField(write_only=True)
+    created_by = UserSerializer(read_only=True, many=False)
+    created_by_id = serializers.IntegerField(write_only=True)
 
     class Meta:
         model = Skill
-        fields = ('id', 'name', 'description', 'category', 'category_id', 'rating', 'status')
+        fields = ('id', 'name', 'description', 'category', 'category_id', 'created_by', 'created_by_id')
 
 
 class PersonSerializer(serializers.ModelSerializer):
     id = serializers.IntegerField(read_only=True)
     user = UserSerializer(many=False, read_only=True)
     user_id = serializers.IntegerField(write_only=True)
-    skills = SkillSerializer(many=True, read_only=True)
 
     class Meta:
         model = Person
         fields = ('id', 'user', 'user_id', 'gender', 'birth_date', 'availability',
-                  'reviews', 'skills', 'status', 'rating')
+                  'reviews', 'rating')
+
+
+class RelationshipSerializer(serializers.ModelSerializer):
+    id = serializers.IntegerField(read_only=True)
+    skill = SkillSerializer(many=False, read_only=True)
+    skill_id = serializers.IntegerField(write_only=True)
+    from_person_id = serializers.IntegerField(write_only=True)
+    to_person = PersonSerializer(read_only=True, many=False)
+    to_person_id = serializers.IntegerField(write_only=True)
+
+    class Meta:
+        model = Relationship
+        fields = ('id', 'status', 'rating', 'skill', 'skill_id', 'from_person_id', 'to_person', 'to_person_id')
