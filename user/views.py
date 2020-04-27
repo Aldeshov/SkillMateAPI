@@ -133,24 +133,14 @@ def list_of_users(request):
         return Response(serializer.data)
 
     elif request.method == 'POST':
-        data = request.data
-        user = data.pop("user")
-        u_serializer = UserSerializer(data=user)
+        u_serializer = UserSerializer(data=request.data.get("user"))
         if u_serializer.is_valid():
             u_serializer.save()
-            person = data
-            person['user_id'] = u_serializer.data.get("id")
-            p_serializer = PersonSerializer(data=person)
+            data = request.data
+            data['user_id'] = u_serializer.data.get("id")
+            p_serializer = PersonSerializer(data=data)
             if p_serializer.is_valid():
                 p_serializer.save()
-                skills = data.pop("skills")
-                for s in skills:
-                    try:
-                        p = Person.objects.get(id=p_serializer.data.get("id"))
-                        p.skills.add(Skill.objects.get(id=s))
-                        p.save()
-                    except Exception as e:
-                        print("ERROR: " + str(e))
                 return Response(p_serializer.data, status=status.HTTP_201_CREATED)
         return Response(status=status.HTTP_500_INTERNAL_SERVER_ERROR)
 
