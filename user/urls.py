@@ -2,8 +2,9 @@ from django.urls import path, re_path
 from rest_framework_jwt.views import obtain_jwt_token
 
 from user.views import list_of_users, user_detail, list_of_skills, skill_detail, category_detail, \
-    user_friends, users_by_skill, user_top, skill_top, category_skills, category_list, \
-    user_skills, current_user, current_user_friends, current_user_skills, current_user_relationships
+    user_friends, users_by_skill, user_top, skill_top, category_skills, category_list, current_user_portfolio, \
+    user_skills, current_user, current_user_friends, current_user_skills, current_user_relationships, user_rate, \
+    current_user_rating, user_portfolio
 
 
 urlpatterns = [
@@ -13,9 +14,13 @@ urlpatterns = [
     path('users/current/friends', current_user_friends),
     path('users/current/skills', current_user_skills),
     path('users/current/relationships', current_user_relationships),
+    path('users/current/portfolio', current_user_portfolio),
+    path('users/current/rating', current_user_rating),
     path('users/<int:user_id>', user_detail),
     path('users/<int:user_id>/friends', user_friends),
     path('users/<int:user_id>/skills', user_skills),
+    path('users/<int:user_id>/rating', user_rate),
+    path('users/<int:user_id>/portfolio', user_portfolio),
     path('skills', list_of_skills),
     path('skills/<int:skill_id>', skill_detail),
     path('skills/<int:skill_id>/users', users_by_skill),  # people who has special skill

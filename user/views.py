@@ -4,8 +4,8 @@ from rest_framework import status
 from rest_framework.decorators import api_view
 from rest_framework.response import Response
 from user.serializers import CategorySerializer, SkillSerializer, \
-    PersonSerializer, UserSerializer, RelationshipSerializer
-from user.models import Category, Skill, Person, Relationship, Friends
+    PersonSerializer, UserSerializer, RelationshipSerializer, DataSerializer
+from user.models import Category, Skill, Person, Relationship, Friends, Rating, Data
 
 
 @api_view(['GET', 'PUT', 'DELETE'])
@@ -50,6 +50,21 @@ def current_user(request):
 
 
 @api_view(['GET', 'PUT', 'DELETE'])
+def current_user_rating(request):
+    try:
+        person = Person.objects.get(user=request.user)
+    except Exception as e:
+        return Response({'error': str(e)})
+
+    if request.method == 'GET':
+        r = {
+            "mark": person.rating.mark,
+            "count": person.rating.count
+        }
+        return Response(r)
+
+
+@api_view(['GET', 'PUT', 'DELETE'])
 def current_user_friends(request):
     try:
         person = Person.objects.get(user=request.user)
@@ -57,7 +72,7 @@ def current_user_friends(request):
         return Response({'error': str(e)})
 
     if request.method == 'GET':
-        friends = person.friends.filter(to_people__from_person=person)
+        friends = person.friends.filter(to_friend__from_person=person)
         serializer = PersonSerializer(friends, many=True)
         return Response(serializer.data)
 
@@ -68,8 +83,8 @@ def current_user_friends(request):
 
     if request.method == 'DELETE':
         friend_id = request.data.get("person_id")
-        friend1 = Friends.objects.get(from_person=person, to_person=Person.objects.get(id=friend_id))
-        friend1.delete()
+        friend = Friends.objects.get(from_person=person, to_person=Person.objects.get(id=friend_id))
+        friend.delete()
         return Response({"Deleted": True}, status=status.HTTP_200_OK)
 
 
@@ -110,18 +125,64 @@ def current_user_relationships(request):
         return Response(serializer.data)
 
     if request.method == 'PUT':
-        data = request.data
-        data['from_person_id'] = person.id
+        data = {
+            "from_person_id": person.id,
+            'to_person_id': request.data.get("to_person"),
+            "status": request.data.get("status"),
+            "skill_id": request.data.get("skill_id")
+        }
         serializer = RelationshipSerializer(data=data)
         if serializer.is_valid():
             serializer.save()
-            return Response({"Created": True}, status=status.HTTP_200_OK)
+            st = 'P'
+            if request.data.get("status") == 'T':
+                st = 'L'
+            if request.data.get("status") == 'L':
+                st = 'T'
+            data = {
+                "from_person_id": request.data.get("to_person"),
+                'to_person_id': person.id,
+                "status": st,
+                "skill_id": request.data.get("skill_id")
+            }
+            serializer = RelationshipSerializer(data=data)
+            if serializer.is_valid():
+                serializer.save()
+                return Response({"Created": True}, status=status.HTTP_200_OK)
         return Response({"error": serializer.errors})
 
     if request.method == 'DELETE':
-        relationship_id = request.data.get("relationship_id")
+        relationship_id = int(request.data.get("relationship_id"))
         rel = Relationship.objects.get(id=relationship_id)
         rel.delete()
+        relationship_id += 1
+        rel = Relationship.objects.get(id=relationship_id)
+        rel.delete()
+        return Response({"Deleted": True}, status=status.HTTP_200_OK)
+
+
+@api_view(['GET', 'PUT', 'DELETE'])
+def current_user_portfolio(request):
+    try:
+        person = Person.objects.get(user=request.user)
+    except Exception as e:
+        return Response({'error': str(e)})
+
+    if request.method == 'GET':
+        portfolio = person.portfolio.all()
+        serializer = DataSerializer(portfolio, many=True)
+        return Response(serializer.data)
+
+    if request.method == 'PUT':
+        serializer = DataSerializer(data=request.data)
+        if serializer.is_valid():
+            serializer.save()
+            return Response({"Created": True}, status=status.HTTP_200_OK)
+        return Response({"error": serializer.errors}, status=status.HTTP_500_INTERNAL_SERVER_ERROR)
+
+    if request.method == 'DELETE':
+        data = Data.objects.get(id=request.data.get("data_id"))
+        data.delete()
         return Response({"Deleted": True}, status=status.HTTP_200_OK)
 
 
@@ -137,11 +198,14 @@ def list_of_users(request):
         if u_serializer.is_valid():
             u_serializer.save()
             data = request.data
+            rating = Rating.objects.create()
             data['user_id'] = u_serializer.data.get("id")
+            data['rating_id'] = rating.id
             p_serializer = PersonSerializer(data=data)
             if p_serializer.is_valid():
                 p_serializer.save()
                 return Response(p_serializer.data, status=status.HTTP_201_CREATED)
+            return Response(p_serializer.errors, status=status.HTTP_500_INTERNAL_SERVER_ERROR)
         return Response(status=status.HTTP_500_INTERNAL_SERVER_ERROR)
 
 
@@ -173,6 +237,44 @@ def user_detail(request, user_id):
 
 
 @api_view(['GET'])
+def user_portfolio(request, user_id):
+    try:
+        person = Person.objects.get(id=user_id)
+    except Person.DoesNotExist as e:
+        return Response({'error': str(e)})
+
+    if request.method == 'GET':
+        portfolio = person.portfolio.all()
+        serializer = DataSerializer(portfolio, many=True)
+        return Response(serializer.data)
+
+
+@api_view(['GET', 'PUT'])
+def user_rate(request, user_id):
+    try:
+        person = Person.objects.get(id=user_id)
+    except Person.DoesNotExist as e:
+        return Response({'error': str(e)})
+
+    if request.method == 'GET':
+        r = {
+            "mark": person.rating.mark,
+            "count": person.rating.count
+        }
+        return Response(r)
+
+    if request.method == 'PUT':
+        if request.user.id != person.user.id:
+            r = person.rating
+            r.mark = r.mark*r.count + int(request.data.get("mark"))
+            r.count += 1
+            r.mark = r.mark / r.count
+            r.save()
+            return Response({"Added": True})
+        return Response({"error": "cannot"})
+
+
+@api_view(['GET'])
 def user_friends(request, user_id):
     try:
         person = Person.objects.get(id=user_id)
@@ -180,8 +282,7 @@ def user_friends(request, user_id):
         return Response({'error': str(e)})
 
     if request.method == 'GET':
-        friends = person.friends.filter(
-            to_people__from_person=person)
+        friends = person.friends.filter(to_people__from_person=person)
         serializer = PersonSerializer(friends, many=True)
         return Response(serializer.data)
 
@@ -294,7 +395,7 @@ def users_by_skill(request, skill_id):
 @api_view(['GET'])
 def user_top(request):
     if request.method == "GET":
-        persons = Person.objects.all().order_by('-rating')[:10]
+        persons = Person.objects.all().order_by('-mark')[:10]
         serializer = PersonSerializer(persons, many=True)
         return Response(serializer.data)
 

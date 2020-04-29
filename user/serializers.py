@@ -1,7 +1,17 @@
 from rest_framework import serializers
 
-from user.models import Category, Skill, Person, Relationship
+from user.models import Category, Skill, Person, Relationship, Data
 from django.contrib.auth.models import User
+
+
+class DataSerializer(serializers.ModelSerializer):
+    id = serializers.IntegerField(read_only=True)
+    photo = serializers.FileField()
+    about = serializers.CharField()
+
+    class Meta:
+        model = Data
+        fields = ('id', 'photo', 'about')
 
 
 class UserSerializer(serializers.ModelSerializer):
@@ -36,11 +46,13 @@ class PersonSerializer(serializers.ModelSerializer):
     id = serializers.IntegerField(read_only=True)
     user = UserSerializer(many=False, read_only=True)
     user_id = serializers.IntegerField(write_only=True)
+    rating_id = serializers.IntegerField(write_only=True)
+    avatar = serializers.FileField()
 
     class Meta:
         model = Person
         fields = ('id', 'user', 'user_id', 'gender', 'birth_date', 'availability',
-                  'reviews', 'rating')
+                  'reviews', 'about_me', 'avatar', 'rating_id')
 
 
 class RelationshipSerializer(serializers.ModelSerializer):
@@ -53,4 +65,5 @@ class RelationshipSerializer(serializers.ModelSerializer):
 
     class Meta:
         model = Relationship
-        fields = ('id', 'status', 'rating', 'skill', 'skill_id', 'from_person_id', 'to_person', 'to_person_id')
+        fields = ('id', 'status', 'skill', 'skill_id', 'from_person_id', 'to_person', 'to_person_id')
+
