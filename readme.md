@@ -1,8 +1,6 @@
 # ***SkillMate API***
 
 
-For Windows
-
 
     • python -m venv myvenv
 
